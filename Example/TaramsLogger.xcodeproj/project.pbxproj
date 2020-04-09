@@ -41,12 +41,12 @@
 		607FACE51AFB9204008FA782 /* TaramsLogger_Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TaramsLogger_Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		607FACEA1AFB9204008FA782 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		607FACEB1AFB9204008FA782 /* Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tests.swift; sourceTree = "<group>"; };
-		6DAB2D0EDAD0428052C5B86C /* LICENSE */ = {isa = PBXFileReference; includeInIndex = 1; name = LICENSE; path = ../LICENSE; sourceTree = "<group>"; };
+		6DAB2D0EDAD0428052C5B86C /* LICENSE */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; name = LICENSE; path = ../LICENSE; sourceTree = "<group>"; };
 		7436E25873E530649CC7CB75 /* Pods-TaramsLogger_Example.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TaramsLogger_Example.debug.xcconfig"; path = "Target Support Files/Pods-TaramsLogger_Example/Pods-TaramsLogger_Example.debug.xcconfig"; sourceTree = "<group>"; };
 		8612C9AFACEF2A981D92EBEB /* Pods-TaramsLogger_Tests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TaramsLogger_Tests.release.xcconfig"; path = "Target Support Files/Pods-TaramsLogger_Tests/Pods-TaramsLogger_Tests.release.xcconfig"; sourceTree = "<group>"; };
-		B7AF333F5A55D4E89ACD6884 /* TaramsLogger.podspec */ = {isa = PBXFileReference; includeInIndex = 1; name = TaramsLogger.podspec; path = ../TaramsLogger.podspec; sourceTree = "<group>"; };
+		B7AF333F5A55D4E89ACD6884 /* TaramsLogger.podspec */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; name = TaramsLogger.podspec; path = ../TaramsLogger.podspec; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.ruby; };
 		BF38E608678D5AF1B2A40D1D /* Pods_TaramsLogger_Example.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_TaramsLogger_Example.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		CC3DD68F178092568A369261 /* README.md */ = {isa = PBXFileReference; includeInIndex = 1; name = README.md; path = ../README.md; sourceTree = "<group>"; };
+		CC3DD68F178092568A369261 /* README.md */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -147,7 +147,6 @@
 				3D0AF1CC31CBAB356B967B5E /* Pods-TaramsLogger_Tests.debug.xcconfig */,
 				8612C9AFACEF2A981D92EBEB /* Pods-TaramsLogger_Tests.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -227,6 +226,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 				Base,
 			);
@@ -269,10 +269,14 @@
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-TaramsLogger_Example/Pods-TaramsLogger_Example-frameworks.sh",
+				"${BUILT_PRODUCTS_DIR}/AWSCore/AWSCore.framework",
+				"${BUILT_PRODUCTS_DIR}/AWSLogs/AWSLogs.framework",
 				"${BUILT_PRODUCTS_DIR}/TaramsLogger/TaramsLogger.framework",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AWSCore.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AWSLogs.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/TaramsLogger.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;

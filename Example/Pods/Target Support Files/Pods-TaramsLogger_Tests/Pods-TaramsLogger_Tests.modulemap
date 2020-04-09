@@ -1,0 +1,6 @@
+framework module Pods_TaramsLogger_Tests {
+  umbrella header "Pods-TaramsLogger_Tests-umbrella.h"
+
+  export *
+  module * { export * }
+}

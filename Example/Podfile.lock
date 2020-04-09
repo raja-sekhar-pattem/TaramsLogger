@@ -1,0 +1,27 @@
+PODS:
+  - AWSCore (2.13.1)
+  - AWSLogs (2.13.1):
+    - AWSCore (= 2.13.1)
+  - TaramsLogger (0.1.0):
+    - AWSLogs (~> 2.13.1)
+
+DEPENDENCIES:
+  - TaramsLogger (from `../`)
+
+SPEC REPOS:
+  trunk:
+    - AWSCore
+    - AWSLogs
+
+EXTERNAL SOURCES:
+  TaramsLogger:
+    :path: "../"
+
+SPEC CHECKSUMS:
+  AWSCore: ec394695d054fa4136b20ccd22d8901faea5de04
+  AWSLogs: edeb9cc7b076fdfa9d0cc8641c74c19b767bb045
+  TaramsLogger: 05b27b7e3d1100e20d1b501ed21217bfcef61d18
+
+PODFILE CHECKSUM: 0d34840080fb15a8c7c97ebf4d0f347492511bb2
+
+COCOAPODS: 1.9.1

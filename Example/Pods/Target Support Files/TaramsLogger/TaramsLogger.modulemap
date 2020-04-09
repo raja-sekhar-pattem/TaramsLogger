@@ -1,0 +1,6 @@
+framework module TaramsLogger {
+  umbrella header "TaramsLogger-umbrella.h"
+
+  export *
+  module * { export * }
+}
