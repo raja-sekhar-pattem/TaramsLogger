@@ -1,0 +1,11 @@
+use_frameworks!
+
+target 'TaramsLogger_Example' do
+  pod 'TaramsLogger', :path => '../'
+
+  target 'TaramsLogger_Tests' do
+    inherit! :search_paths
+
+    
+  end
+end
