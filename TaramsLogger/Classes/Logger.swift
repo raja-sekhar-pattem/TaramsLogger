@@ -11,7 +11,7 @@ import UIKit
 import AWSLogs
 
 open class Logger {
-//    static let defaultAWSLogs = AWSLogs(forKey: DefaultAWSService.Constants.awsLogKey)
+    static let defaultAWSLogs = AWSLogs(forKey: "DefaultAWSService.Constants.awsLogKey")
     static var logStreamSession = "LogSession"
     static var sequenceToken = "AWS Sequence Token"
     static var deviceId = "Current device ID"
@@ -133,7 +133,7 @@ open class Logger {
         return paths[0].appendingPathComponent(logFileName)
     }
     
-    class func writeLogsToAWSCloudWatch(message: String = "", event: LogType, file: String = #file, function: String = #function, line: Int = #line) {
+    class func writeLogsToAWSCloudWatch(message: String = "", groupName: String, event: LogType, file: String = #file, function: String = #function, line: Int = #line) {
 
         if event.allowToLogWrite {
             loggerQueue.async {
@@ -141,22 +141,22 @@ open class Logger {
                 let logInputEvent = AWSLogsInputLogEvent()
                 logInputEvent?.message = logMessage
                 logInputEvent?.timestamp = (Date().timeIntervalSince1970 * 1000.0) as NSNumber
-                ConsoleLog.print("logMessage", logMessage)
+                print("logMessage", logMessage)
 
                 let logEvent = AWSLogsPutLogEventsRequest()
                 logEvent?.logEvents = [logInputEvent] as? [AWSLogsInputLogEvent]
-                logEvent?.logGroupName = BuildType.active.apiEnv.awsGroupName
+                logEvent?.logGroupName = groupName
                 logEvent?.logStreamName = logStreamSession //BuildType.active.apiEnv.awsLogStreamName
-                ConsoleLog.print("sequenceToken before\(self.sequenceToken)")
-                ConsoleLog.print("logStream@@@@\(String(describing: logEvent?.logStreamName))")
+                print("sequenceToken before\(self.sequenceToken)")
+                print("logStream@@@@\(String(describing: logEvent?.logStreamName))")
 
                 if self.sequenceToken != "" {
                     logEvent?.sequenceToken = self.sequenceToken
-                    ConsoleLog.print("sequenceToken After\(logEvent?.sequenceToken! ?? "")")
+                    print("sequenceToken After\(logEvent?.sequenceToken! ?? "")")
                 }
 
                 guard let tempLogEvent = logEvent else {
-                    ConsoleLog.print("templogEvent", logEvent!)
+                    print("templogEvent", logEvent!)
                     return
                 }
 
@@ -164,8 +164,8 @@ open class Logger {
                     if response?.nextSequenceToken != nil {
                         self.sequenceToken = response?.nextSequenceToken ?? ""
                     }
-                    ConsoleLog.print("Log Error 1 \(String(describing: error))")
-                    ConsoleLog.print("Log Response \(String(describing: response))")
+                    print("Log Error 1 \(String(describing: error))")
+                    print("Log Response \(String(describing: response))")
                 }
 
             }
@@ -230,45 +230,6 @@ open class Logger {
 extension Date {
     func toString() -> String {
         return Logger.dateFormatter.string(from: self as Date)
-    }
-}
-
-extension Logger {
-    
-    enum LogMessages {
-        enum HomeScreen: String {
-            case homeButtonClicked = "clicked Home Screen Home button"
-            case searchButtonClicked = "clicked HomeScreen Search button"
-            case leaderboardButtonClicked = "clicked HomeScreen Leaderboard button"
-            case inboxButtonClicked = "clicked HomeScreen Inbox button"
-            case shareButtonClicked = "clicked HomeScreen Share icon"
-            case newBattleButtonClicked = "clicked HomeScreen NewBattle button"
-            case commentButtonClicked = "clicked HomeScreen Comment button"
-            case profileButtonClicked = "clicked HomeScreen profile button"
-            case editProfile = "clicked EditProfile button"
-            case changeProfile = "changed profile picture"
-            case followers = "clicked profile screen Followers"
-        }
-        enum SearchScreen: String {
-            case leaguesSegmentClicked = "clicked Home Screen Home button"
-            case teamsSegmentClicked = "clicked HomeScreen Search button"
-            case leagueItemClicked = "clicked HomeScreen Leaderboard button"
-            case leagueTagClicked = "clicked HomeScreen Inbox button"
-            case teamClicked = "clicked HomeScreen Share icon"
-            case teamTagClicked = "clicked HomeScreen NewBattle button"
-            case battleClicked = "clicked HomeScreen Comment button"
-            case searchButtonClicked = "clicked HomeScreen profile button"
-        }
-        
-        enum CreatePostBattle: String {
-            case createPost = "clicked post battle button"
-            case postCompleted = "clicked post battle initiated"
-        }
-        
-        enum Signup: String {
-            case signup = "clicked on signup button"
-        }
-        
     }
 }
 
