@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'TaramsLogger'
-  s.version          = '0.1.0'
+  s.version          = '0.1.1'
   s.summary          = 'A utility class on top of AWSLogs to updlad logd to AWS'
   s.swift_version    = '5.0'
   s.homepage         = 'https://github.com/raja-sekhar-pattem/TaramsLogger'

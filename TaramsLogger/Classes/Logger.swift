@@ -11,19 +11,23 @@ import UIKit
 import AWSLogs
 
 open class Logger {
-    static let defaultAWSLogs = AWSLogs(forKey: "DefaultAWSService.Constants.awsLogKey")
-    static var logStreamSession = "LogSession"
-    static var sequenceToken = "AWS Sequence Token"
-    static var deviceId = "Current device ID"
-    static var userId = "Logged in user Id"
-    static var sessionId = "Current session Id"
-    static var logsCount = 0
-    static var buildType = BuildType.development
-    static let versionString = "\(Bundle.main.versionNumber) : \(getOSInfo()) | \(deviceId)"
+    private static var defaultAWSLogs: AWSLogs!
+    private static var awsLogGroupName: String!
+    private static var awsLogStreamName: String!
+    public static var awsLogSequenceToken: String!
+    public static var deviceId = "Current device ID"
+    public static var userId = "Logged in user Id"
+    public static var sessionId = "Current session Id"
+    public static var buildType = BuildEnvironment.development
+    public static var dateFormat = "dd-MM-yyyy"
+    public static var logFileName = "log.txt"
     static let loggerQueue = DispatchQueue(label: "SportsMe.Logger")
-    static var dateFormat = "dd-MM-yyyy"
-    static var logFileName = "log.txt"
-    
+    private static var logsCount = 0
+    public static var maximumLogsCount = 500
+    private init() { }
+    static var versionString: String {
+        return "\(Bundle.main.versionNumber) : \(getOSInfo()) | \(deviceId)"
+    }
     static var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = dateFormat
@@ -33,33 +37,32 @@ open class Logger {
         formatter.pmSymbol = "PM"
         return formatter
     }
-    
-    enum BuildType {
-
+    public enum BuildEnvironment {
+        
         /// Debug build
         case development
-
+        
         /// App store Release build, no flags
         case production
-
+        
         /// Staging Environment
         case staging
         
         case qa
         /// Whether or not this build type is the active build type.
     }
-
     
-    enum LogType: String {
+    
+    public enum LogType: String {
         case info = "[INFO]"
         case debug = "[DEBUG]"
         case warning = "[WARNING]"
         case error = "[ERROR]"
         case exception = "[EXCEPTION]"
         
-        var allowToPrint: Bool {
+        func allowToPrint(environment: BuildEnvironment) -> Bool {
             var allowed = false
-            switch buildType {
+            switch environment {
             case .development, .qa:
                 allowed = true
             case .production, .staging:
@@ -79,9 +82,9 @@ open class Logger {
             return allowed
         }
         
-        var allowToLogWrite: Bool {
+        func allowToLogWrite(environment: BuildEnvironment) -> Bool {
             var allowed = false
-            switch buildType {
+            switch environment {
             case .development, .qa:
                 allowed = true
             case .production, .staging:
@@ -101,7 +104,20 @@ open class Logger {
             return allowed
         }
     }
-
+    public static func setAWSLogs(awsLogs: AWSLogs, awsGroupName: String, awsStreamName: String, awsSequenceToken: String) {
+        defaultAWSLogs = awsLogs
+        awsLogGroupName = awsGroupName
+        awsLogStreamName = awsStreamName
+        awsLogSequenceToken = awsSequenceToken
+    }
+    
+    public static func setDefaultInfo(deviceId: String, userId: String, sessionId: String, buildType: BuildEnvironment) {
+        Logger.deviceId = deviceId
+        Logger.userId = userId
+        Logger.sessionId = sessionId
+        Logger.buildType = buildType
+    }
+    
     static func getOSInfo() -> String {
         let os = ProcessInfo().operatingSystemVersion
         return "iOS-" + String(os.majorVersion) + "." + String(os.minorVersion) + "." + String(os.patchVersion)
@@ -116,83 +132,105 @@ open class Logger {
     ///        let key = "\(uuid)"
     /// timeStamp + " | " + appVersion + " : " + osVersion + " | " + deviceUUID + “ | “ + SessionId + “ | ” +  UserId + " | “ +  [logLevelName]  + ” | “  + FileName + " | " + FunctionName + " | " + LineNumber + " : " + Message
     
-    private class func getDefaultString() -> String {
+    open class func getDefaultString() -> String {
         return "\(Date().toString())| \(versionString) | \(sessionId) | \(userId)"
     }
     
     class func log(message: String, event: LogType, fileName: String = #file, line: Int = #line, column: Int = #column, funcName: String = #function) -> String {
-        if event.allowToPrint {
+        if event.allowToPrint(environment: Logger.buildType) {
             return "\(getDefaultString()) | \(event.rawValue) | [\(sourceFileName(filePath: fileName))]:\(line) \(column)\(funcName) -> \(message)"
         }
         return ""
     }
     
-    private class func getLogFile() -> URL {
+    static func getLogFile() -> URL {
         let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
         print("Logfile name: \(paths[0].absoluteString)")
         return paths[0].appendingPathComponent(logFileName)
     }
     
-    class func writeLogsToAWSCloudWatch(message: String = "", groupName: String, event: LogType, file: String = #file, function: String = #function, line: Int = #line) {
-
-        if event.allowToLogWrite {
+    open class func writeLogsToAWSCloudWatch(message: String = "", event: LogType, file: String = #file, function: String = #function, line: Int = #line) {
+        
+        if event.allowToLogWrite(environment: Logger.buildType)  && vlaidateAWSParams() {
             loggerQueue.async {
                 let logMessage = "\(getDefaultString()) | \(event.rawValue) | \(file.components(separatedBy: "/").last ?? file) | \(function) | \(line) : \(message)"
                 let logInputEvent = AWSLogsInputLogEvent()
                 logInputEvent?.message = logMessage
                 logInputEvent?.timestamp = (Date().timeIntervalSince1970 * 1000.0) as NSNumber
                 print("logMessage", logMessage)
-
+                
                 let logEvent = AWSLogsPutLogEventsRequest()
                 logEvent?.logEvents = [logInputEvent] as? [AWSLogsInputLogEvent]
-                logEvent?.logGroupName = groupName
-                logEvent?.logStreamName = logStreamSession //BuildType.active.apiEnv.awsLogStreamName
-                print("sequenceToken before\(self.sequenceToken)")
+                logEvent?.logGroupName = awsLogGroupName
+                logEvent?.logStreamName = awsLogStreamName //BuildType.active.apiEnv.awsLogStreamName
+                print("sequenceToken before\(self.awsLogSequenceToken)")
                 print("logStream@@@@\(String(describing: logEvent?.logStreamName))")
-
-                if self.sequenceToken != "" {
-                    logEvent?.sequenceToken = self.sequenceToken
+                
+                if self.awsLogSequenceToken != "" {
+                    logEvent?.sequenceToken = self.awsLogSequenceToken
                     print("sequenceToken After\(logEvent?.sequenceToken! ?? "")")
                 }
-
+                
                 guard let tempLogEvent = logEvent else {
                     print("templogEvent", logEvent!)
                     return
                 }
-
+                
                 defaultAWSLogs.putLogEvents(tempLogEvent) { (response, error) in
                     if response?.nextSequenceToken != nil {
-                        self.sequenceToken = response?.nextSequenceToken ?? ""
+                        self.awsLogSequenceToken = response?.nextSequenceToken ?? ""
                     }
                     print("Log Error 1 \(String(describing: error))")
                     print("Log Response \(String(describing: response))")
                 }
-
+                
             }
         }
     }
     
-    class func writeToFile(message: String = "", event: LogType, file: String = #file, function: String = #function, line: Int = #line) {
-//        writeLogsToAWSCloudWatch(message: message, event: event, file: file, function: function, line: line )
-                checkFilesCountAndUpload {
-                    if event.allowToLogWrite {
-                        loggerQueue.async {
-                            let logMessage = "\(getDefaultString()) | \(event.rawValue) | \(file.components(separatedBy: "/").last ?? file) | \(function) | \(line) : \(message)\n".data(using: .utf8)
-                            let log = Logger.getLogFile()
-                            if let handle = try? FileHandle(forWritingTo: log) {
-                                handle.seekToEndOfFile()
-                                handle.write(logMessage!)
-                                handle.closeFile()
-                            }
-                            else {
-                                try? logMessage?.write(to: log)
-                            }
-                        }
-                    }
-                }
+    private static func vlaidateAWSParams() -> Bool {
+        let errorStr = "Please set it using function setDefaultAWSLogs(awsLogs: AWSLogs, awsGroupName: String, awsStreamName: String, awsSequenceToken: String)"
+        
+        guard defaultAWSLogs != nil else {
+            assertionFailure("Invalid AWSLogs instance, " + errorStr)
+            return false
+        }
+        guard awsLogGroupName != nil else {
+            assertionFailure("Invalid awsLogGroupName. " + errorStr)
+            return false
+        }
+        guard awsLogStreamName != nil else {
+            assertionFailure("Invalid awsLogStreamName. " + errorStr)
+            return false
+        }
+        guard awsLogSequenceToken != nil else {
+            assertionFailure("Invalid awsLogSequenceToken. " + errorStr)
+            return false
+        }
+        return true
     }
     
-    class func deleteLocalLogs() {
+    open class func writeToFile(message: String = "", event: LogType, file: String = #file, function: String = #function, line: Int = #line) {
+        //        writeLogsToAWSCloudWatch(message: message, event: event, file: file, function: function, line: line )
+        checkFilesCountAndUpload {
+            if event.allowToLogWrite(environment: Logger.buildType) {
+                loggerQueue.async {
+                    let logMessage = "\(getDefaultString()) | \(event.rawValue) | \(file.components(separatedBy: "/").last ?? file) | \(function) | \(line) : \(message)\n".data(using: .utf8)
+                    let log = Logger.getLogFile()
+                    if let handle = try? FileHandle(forWritingTo: log) {
+                        handle.seekToEndOfFile()
+                        handle.write(logMessage!)
+                        handle.closeFile()
+                    }
+                    else {
+                        try? logMessage?.write(to: log)
+                    }
+                }
+            }
+        }
+    }
+    
+    open class func deleteLocalLogs() {
         let text = ""
         do {
             try text.write(to: Logger.getLogFile(), atomically: false, encoding: .utf8)
@@ -203,7 +241,7 @@ open class Logger {
     }
     
     class func checkFilesCountAndUpload(completion: (() -> Void)) {
-        if logsCount >= 500 {
+        if logsCount >= maximumLogsCount {
             uploadLogsToAWSS3Bucket { (success) in
                 if success {
                     deleteLocalLogs()
@@ -227,13 +265,13 @@ open class Logger {
     }
 }
 
-extension Date {
+public extension Date {
     func toString() -> String {
         return Logger.dateFormatter.string(from: self as Date)
     }
 }
 
-extension Bundle {
+public extension Bundle {
     
     var appName: String {
         guard let appName = infoDictionary?["CFBundleName"] as? String else {return ""}
