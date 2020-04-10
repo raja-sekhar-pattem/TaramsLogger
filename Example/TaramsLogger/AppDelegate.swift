@@ -71,4 +71,8 @@ class AWSLogsService : LoggerDelegate {
         
         print("MESSAGE: \(message)")
     }
+    
+    func loggingEventSuccess(message: String, timestamp: NSNumber, nextSequenceToken: String) {
+        print("MESSAGE: \(message)")
+    }
 }
