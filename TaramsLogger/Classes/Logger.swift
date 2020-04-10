@@ -19,25 +19,46 @@ public enum UploadToAWSError: Error {
     case invalidUserId
     case invalidDeviceId
     case invalidSessionId
+    struct Constants {
+        static let errorStr = "Please set it using function setDefaultAWSLogs(awsLogs: AWSLogs, awsGroupName: String, awsStreamName: String)"
+        static let invalidAWSLogsInstanceMessage = "Invalid AWSLogs instance, \(errorStr)"
+        static let invalidAWSLogGroupNameMessage = "Invalid AWSGroupName, \(errorStr)"
+        static let invalidawsLogStreamNameMessage = "Invalid AWSLogStreamName, \(errorStr)"
+        static let invalidAWSLogEventInstanceMessage = "Invalid AWS Log event instance, the instance of AWSLogsPutLogEventsRequest() is nil. Please check the AWSGroupName, AWSStreamName provided to Logger."
+        static let invalidAWSLogStreamMessage = "Invalid AWSLogs instance, while creating the instance of AWSLogsCreateLogStreamRequest(). \(errorStr)"
+        static let invalidUserIdMessage = "Invalid UserId. Please set the userId using Logger.userId "
+        static let invalidDeviceIdMessage = "Invalid UserId. Please set the userId using Logger.deviceId "
+        static let invalidSessionIdMessage = "Invalid UserId. Please set the userId using Logger.sessionId "
+        
+        static let invalidAWSLogsInstanceComment = "Invalid AWSLogs Instance"
+        static let invalidAWSLogGroupNameComment = "Invalid AWSGroupName."
+        static let invalidawsLogStreamNameComment = "Invalid AWSStreamName"
+        static let invalidAWSLogEventInstanceComment = "Invalid AWS Log event instance"
+        static let invalidAWSLogStreamComment = "Invalid AWSLogs instance"
+        static let invalidUserIdComment = "Invalid UserId"
+        static let invalidDeviceIdComment = "Invalid Device Id"
+        static let invalidSessionIdComment = "Invalid SessionId"
+        
+    }
     public var errorDescription: String? {
-        let errorStr = "Please set it using function setDefaultAWSLogs(awsLogs: AWSLogs, awsGroupName: String, awsStreamName: String)"
+        
         switch self {
         case .invalidAWSLogsInstance:
-            return NSLocalizedString("Invalid AWSLogs instance, \(errorStr)", comment: "Invalid AWSLogs Instance")
+            return NSLocalizedString(Constants.invalidAWSLogsInstanceMessage, comment: Constants.invalidAWSLogsInstanceComment)
         case .invalidAWSLogGroupName:
-            return NSLocalizedString("Invalid AWSGroupName, \(errorStr)", comment: "Invalid AWSGroupName.")
+            return NSLocalizedString(Constants.invalidAWSLogGroupNameMessage, comment: Constants.invalidAWSLogGroupNameComment)
         case .invalidawsLogStreamName:
-            return NSLocalizedString("Invalid AWSLogStreamName, \(errorStr)", comment: "Invalid AWSStreamName")
+            return NSLocalizedString(Constants.invalidawsLogStreamNameMessage, comment: Constants.invalidawsLogStreamNameComment)
         case .invalidAWSLogEventInstance:
-            return NSLocalizedString("Invalid AWS Log event instance, the instance of AWSLogsPutLogEventsRequest() is nil. Please check the AWSGroupName, AWSStreamName provided to Logger.", comment: "Invalid AWS Log event instance")
+            return NSLocalizedString(Constants.invalidAWSLogEventInstanceMessage, comment: Constants.invalidAWSLogEventInstanceComment)
         case .invalidAWSLogStream:
-            return NSLocalizedString("Invalid AWSLogs instance, while creating the instance of AWSLogsCreateLogStreamRequest(). \(errorStr)", comment: "Invalid AWSLogs instance")
+            return NSLocalizedString(Constants.invalidAWSLogStreamMessage, comment: Constants.invalidAWSLogStreamComment)
         case .invalidUserId:
-            return NSLocalizedString("Invalid UserId. Please set the userId using Logger.userId ", comment: "Invalid UserId")
+            return NSLocalizedString(Constants.invalidUserIdMessage, comment: Constants.invalidUserIdComment)
         case .invalidDeviceId:
-            return NSLocalizedString("Invalid UserId. Please set the userId using Logger.deviceId ", comment: "Invalid Device Id")
+            return NSLocalizedString(Constants.invalidDeviceIdMessage, comment: Constants.invalidDeviceIdComment)
         case .invalidSessionId:
-            return NSLocalizedString("Invalid UserId. Please set the userId using Logger.sessionId ", comment: "Invalid SessionId")
+            return NSLocalizedString(Constants.invalidSessionIdMessage, comment: Constants.invalidSessionIdComment)
         }
     }
     public var errorCode: Int {
@@ -75,8 +96,6 @@ open class Logger {
     private static var logsCount = 0
     public static var maximumLogsCount = 500
     public static weak var delegate: LoggerDelegate?
-    public static var messageSendingFailedBlock : ((String, UploadToAWSError) -> Void)?
-    public static var nextSequenceTokenBlock: ((String?) -> Void)?
     private init() { }
 
     static var dateFormatter: DateFormatter {
@@ -155,6 +174,16 @@ open class Logger {
             return allowed
         }
     }
+    
+    public static func registerAndSetAWSLogs(serviceConfig: AWSServiceConfiguration, awsLogKey: String, awsGroupName: String, awsStreamName: String) {
+        AWSLogs.register(with: serviceConfig, forKey: awsLogKey)
+        defaultAWSLogs = AWSLogs(forKey: awsLogKey)
+        awsLogGroupName = awsGroupName
+        awsLogStreamName = awsStreamName
+        createLogStream()
+        
+    }
+    
     public static func setAWSLogs(awsLogs: AWSLogs, awsGroupName: String, awsStreamName: String) {
         defaultAWSLogs = awsLogs
         awsLogGroupName = awsGroupName
@@ -170,19 +199,16 @@ open class Logger {
         
         guard let logger = Logger.defaultAWSLogs else {
             delegate?.loggingEventFailed(message: "AWSLogs() Initialization error", error: UploadToAWSError.invalidAWSLogStream)
-            messageSendingFailedBlock?("AWSLogs() Initialization error", UploadToAWSError.invalidAWSLogStream)
             return
         }
         guard let streamRequest = logStreamRequest else {
             delegate?.loggingEventFailed(message: "AWSLogsCreateLogStreamRequest() instantiation error", error: UploadToAWSError.invalidAWSLogStream)
-            messageSendingFailedBlock?("AWSLogsCreateLogStreamRequest() instantiation error", UploadToAWSError.invalidAWSLogStream)
             return
         }
         
         logger.createLogStream(streamRequest) { (error) in
             if let error = error {
                 delegate?.loggingEventFailed(message: error.localizedDescription, error: UploadToAWSError.invalidAWSLogStream)
-                messageSendingFailedBlock?(error.localizedDescription, UploadToAWSError.invalidAWSLogStream)
             }
         }
     }
@@ -253,7 +279,6 @@ open class Logger {
                 
                 guard let tempLogEvent = logEvent else {
                     delegate?.loggingEventFailed(message: logMessage, error: UploadToAWSError.invalidAWSLogEventInstance)
-                    messageSendingFailedBlock?(logMessage, UploadToAWSError.invalidAWSLogEventInstance)
                     return
                 }
                 
@@ -262,7 +287,6 @@ open class Logger {
                         self.awsLogSequenceToken = response?.nextSequenceToken ?? ""
                     }
                     delegate?.nextSequenceToken(token: response?.nextSequenceToken)
-                    nextSequenceTokenBlock?(response?.nextSequenceToken)
                 }
                 
             }
@@ -273,17 +297,14 @@ open class Logger {
         
         guard !userId.isEmpty else {
             delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidUserId)
-            messageSendingFailedBlock?(message, UploadToAWSError.invalidUserId)
             return false
         }
         guard !deviceId.isEmpty else {
             delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidDeviceId)
-            messageSendingFailedBlock?(message, UploadToAWSError.invalidDeviceId)
             return false
         }
         guard !sessionId.isEmpty else {
             delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidSessionId)
-            messageSendingFailedBlock?(message, UploadToAWSError.invalidSessionId)
             return false
         }
         return true
@@ -293,17 +314,14 @@ open class Logger {
         
         guard defaultAWSLogs != nil else {
             delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidAWSLogsInstance)
-            messageSendingFailedBlock?(message, UploadToAWSError.invalidAWSLogsInstance)
             return false
         }
         guard awsLogGroupName != nil else {
             delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidAWSLogGroupName)
-            messageSendingFailedBlock?(message, UploadToAWSError.invalidAWSLogGroupName)
             return false
         }
         guard awsLogStreamName != nil else {
             delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidawsLogStreamName)
-            messageSendingFailedBlock?(message, UploadToAWSError.invalidAWSLogGroupName)
             return false
         }
         return true
