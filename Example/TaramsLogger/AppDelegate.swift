@@ -7,6 +7,8 @@
 //
 
 import UIKit
+import TaramsLogger
+import AWSLogs
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -16,6 +18,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        ///if you are using AWSLogs, calling setAWSLogs function is mandatory
+        AWSLogsService.shared.configure()
         return true
     }
 
@@ -40,7 +44,31 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func applicationWillTerminate(_ application: UIApplication) {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
-
-
 }
 
+class AWSLogsService : LoggerDelegate {
+    static let shared = AWSLogsService()
+    private init() {
+        Logger.delegate = self
+    }
+    func configure() {
+        let awsLogs = AWSLogs(forKey: "YOUR AWS LOGS KEY")
+        Logger.setAWSLogs(awsLogs:awsLogs , awsGroupName: "AWSGroupName", awsStreamName: "AWSStreamname")
+        /// you can set default infor using the setDefaultInfo function or you can directly set it by variable name
+        // set info using function
+        Logger.setDefaultInfo(deviceId: "DEVICEID", userId: "USERID", sessionId: "SESSIONID", buildType: .development)
+        //set info using varaible name
+        Logger.deviceId = "new deviceId"
+        Logger.logFileName = "loggerLogs.txt"
+        Logger.messageSendingFailedBlock = { (message, error) in
+            print("Log Event Failed !!!! error: \(error.errorDescription ?? "") errorCode: \(error.errorCode)")
+            print("MESSAGE: \(message)")
+        }
+    }
+    
+//    func loggingEventFailed(message: String, error: UploadToAWSError) {
+//        print("Log Event Failed !!!! error: \(error.errorDescription ?? "") errorCode: \(error.errorCode)")
+//        
+//        print("MESSAGE: \(message)")
+//    }
+}

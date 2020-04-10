@@ -8,8 +8,8 @@
 
 Pod::Spec.new do |s|
   s.name             = 'TaramsLogger'
-  s.version          = '0.1.2'
-  s.summary          = 'A utility class on top of AWSLogs to updlad logd to AWS'
+  s.version          = '0.1.3'
+  s.summary          = 'A utility class on top of AWSLogs to updload logs to AWS CloudWatch'
   s.swift_version    = '5.0'
   s.homepage         = 'https://github.com/raja-sekhar-pattem/TaramsLogger'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }

@@ -10,25 +10,75 @@ import Foundation
 import UIKit
 import AWSLogs
 
+public enum UploadToAWSError: Error {
+    case invalidAWSLogsInstance
+    case invalidAWSLogGroupName
+    case invalidawsLogStreamName
+    case invalidAWSLogEventInstance
+    case invalidAWSLogStream
+    case invalidUserId
+    case invalidDeviceId
+    case invalidSessionId
+    public var errorDescription: String? {
+        let errorStr = "Please set it using function setDefaultAWSLogs(awsLogs: AWSLogs, awsGroupName: String, awsStreamName: String)"
+        switch self {
+        case .invalidAWSLogsInstance:
+            return NSLocalizedString("Invalid AWSLogs instance, \(errorStr)", comment: "Invalid AWSLogs Instance")
+        case .invalidAWSLogGroupName:
+            return NSLocalizedString("Invalid AWSGroupName, \(errorStr)", comment: "Invalid AWSGroupName.")
+        case .invalidawsLogStreamName:
+            return NSLocalizedString("Invalid AWSLogStreamName, \(errorStr)", comment: "Invalid AWSStreamName")
+        case .invalidAWSLogEventInstance:
+            return NSLocalizedString("Invalid AWS Log event instance, the instance of AWSLogsPutLogEventsRequest() is nil. Please check the AWSGroupName, AWSStreamName provided to Logger.", comment: "Invalid AWS Log event instance")
+        case .invalidAWSLogStream:
+            return NSLocalizedString("Invalid AWSLogs instance, while creating the instance of AWSLogsCreateLogStreamRequest(). \(errorStr)", comment: "Invalid AWSLogs instance")
+        case .invalidUserId:
+            return NSLocalizedString("Invalid UserId. Please set the userId using Logger.userId ", comment: "Invalid UserId")
+        case .invalidDeviceId:
+            return NSLocalizedString("Invalid UserId. Please set the userId using Logger.deviceId ", comment: "Invalid Device Id")
+        case .invalidSessionId:
+            return NSLocalizedString("Invalid UserId. Please set the userId using Logger.sessionId ", comment: "Invalid SessionId")
+        }
+    }
+    public var errorCode: Int {
+        switch self {
+        case .invalidAWSLogStream:
+            return -1
+        default:
+            return 0
+        }
+    }
+}
+
+public protocol LoggerDelegate : class {
+    func loggingEventFailed(message: String, error: UploadToAWSError)
+    func nextSequenceToken(token: String?)
+}
+
+public extension LoggerDelegate {
+    func nextSequenceToken(token: String?) { }
+}
+
 open class Logger {
     private static var defaultAWSLogs: AWSLogs!
     private static var awsLogGroupName: String!
     private static var awsLogStreamName: String!
     private static var logStreamSession:String = ""
-    public static var awsLogSequenceToken = ""
-    public static var deviceId = "Current device ID"
-    public static var userId = "Logged in user Id"
-    public static var sessionId = "Current session Id"
+    public static var awsLogSequenceToken = ""  /// this value is set every time we push a log to AWS Cloud watch
+    public static var deviceId = ""
+    public static var userId = ""
+    public static var sessionId = ""
     public static var buildType = BuildEnvironment.development
     public static var dateFormat = "dd-MM-yyyy"
     public static var logFileName = "log.txt"
     static let loggerQueue = DispatchQueue(label: "SportsMe.Logger")
     private static var logsCount = 0
     public static var maximumLogsCount = 500
+    public static weak var delegate: LoggerDelegate?
+    public static var messageSendingFailedBlock : ((String, UploadToAWSError) -> Void)?
+    public static var nextSequenceTokenBlock: ((String?) -> Void)?
     private init() { }
-    static var versionString: String {
-        return "\(Bundle.main.versionNumber) : \(getOSInfo()) | \(deviceId)"
-    }
+
     static var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = dateFormat
@@ -118,9 +168,21 @@ open class Logger {
         logStreamRequest?.logStreamName = awsLogStreamName
         logStreamSession = logStreamRequest?.logStreamName ?? "nil"
         
-        if let tempLogStreamRequest = logStreamRequest {
-            Logger.defaultAWSLogs.createLogStream(tempLogStreamRequest) { (error) in
-                print("Log stream Error \(String(describing: error))")
+        guard let logger = Logger.defaultAWSLogs else {
+            delegate?.loggingEventFailed(message: "AWSLogs() Initialization error", error: UploadToAWSError.invalidAWSLogStream)
+            messageSendingFailedBlock?("AWSLogs() Initialization error", UploadToAWSError.invalidAWSLogStream)
+            return
+        }
+        guard let streamRequest = logStreamRequest else {
+            delegate?.loggingEventFailed(message: "AWSLogsCreateLogStreamRequest() instantiation error", error: UploadToAWSError.invalidAWSLogStream)
+            messageSendingFailedBlock?("AWSLogsCreateLogStreamRequest() instantiation error", UploadToAWSError.invalidAWSLogStream)
+            return
+        }
+        
+        logger.createLogStream(streamRequest) { (error) in
+            if let error = error {
+                delegate?.loggingEventFailed(message: error.localizedDescription, error: UploadToAWSError.invalidAWSLogStream)
+                messageSendingFailedBlock?(error.localizedDescription, UploadToAWSError.invalidAWSLogStream)
             }
         }
     }
@@ -132,11 +194,6 @@ open class Logger {
         Logger.buildType = buildType
     }
     
-    static func getOSInfo() -> String {
-        let os = ProcessInfo().operatingSystemVersion
-        return "iOS-" + String(os.majorVersion) + "." + String(os.minorVersion) + "." + String(os.patchVersion)
-    }
-    
     private class func sourceFileName(filePath: String) -> String {
         let components = filePath.components(separatedBy: "/")
         return components.isEmpty ? "" : components.last!
@@ -146,8 +203,17 @@ open class Logger {
     ///        let key = "\(uuid)"
     /// timeStamp + " | " + appVersion + " : " + osVersion + " | " + deviceUUID + “ | “ + SessionId + “ | ” +  UserId + " | “ +  [logLevelName]  + ” | “  + FileName + " | " + FunctionName + " | " + LineNumber + " : " + Message
     
+    open class func getOSInfo() -> String {
+        let os = ProcessInfo().operatingSystemVersion
+        return "iOS-" + String(os.majorVersion) + "." + String(os.minorVersion) + "." + String(os.patchVersion)
+    }
+    
+    open class func getVersionString() -> String {
+        return "\(Bundle.main.versionNumber) : \(getOSInfo())"
+    }
+    
     open class func getDefaultString() -> String {
-        return "\(Date().toString())| \(versionString) | \(sessionId) | \(userId)"
+        return "\(Date().toString())| \(getVersionString())| \(deviceId) | \(sessionId) | \(userId)"
     }
     
     class func log(message: String, event: LogType, fileName: String = #file, line: Int = #line, column: Int = #column, funcName: String = #function) -> String {
@@ -163,30 +229,31 @@ open class Logger {
         return paths[0].appendingPathComponent(logFileName)
     }
     
+    open class func getFormattedLog(message: String, event: LogType, file: String, function: String, line: Int) -> String {
+        return "\(getDefaultString()) | \(event.rawValue) | \(file.components(separatedBy: "/").last ?? file) | \(function) | \(line) : \(message)"
+    }
+    
     open class func writeLogsToAWSCloudWatch(message: String = "", event: LogType, file: String = #file, function: String = #function, line: Int = #line) {
+         let logMessage = getFormattedLog(message: message, event: event, file: file, function: function, line: line)
         
-        if event.allowToLogWrite(environment: Logger.buildType)  && vlaidateAWSParams() {
+        if event.allowToLogWrite(environment: Logger.buildType)  && vlaidateAWSParams(message: logMessage) {
             loggerQueue.async {
-                let logMessage = "\(getDefaultString()) | \(event.rawValue) | \(file.components(separatedBy: "/").last ?? file) | \(function) | \(line) : \(message)"
                 let logInputEvent = AWSLogsInputLogEvent()
                 logInputEvent?.message = logMessage
                 logInputEvent?.timestamp = (Date().timeIntervalSince1970 * 1000.0) as NSNumber
-                print("logMessage", logMessage)
                 
                 let logEvent = AWSLogsPutLogEventsRequest()
                 logEvent?.logEvents = [logInputEvent] as? [AWSLogsInputLogEvent]
                 logEvent?.logGroupName = awsLogGroupName
                 logEvent?.logStreamName = logStreamSession
-                print("sequenceToken before\(self.awsLogSequenceToken)")
-                print("logStream@@@@\(String(describing: logEvent?.logStreamName))")
                 
                 if self.awsLogSequenceToken != "" {
                     logEvent?.sequenceToken = self.awsLogSequenceToken
-                    print("sequenceToken After\(logEvent?.sequenceToken! ?? "")")
                 }
                 
                 guard let tempLogEvent = logEvent else {
-                    print("templogEvent", logEvent!)
+                    delegate?.loggingEventFailed(message: logMessage, error: UploadToAWSError.invalidAWSLogEventInstance)
+                    messageSendingFailedBlock?(logMessage, UploadToAWSError.invalidAWSLogEventInstance)
                     return
                 }
                 
@@ -194,27 +261,49 @@ open class Logger {
                     if response?.nextSequenceToken != nil {
                         self.awsLogSequenceToken = response?.nextSequenceToken ?? ""
                     }
-                    print("Log Error 1 \(String(describing: error))")
-                    print("Log Response \(String(describing: response))")
+                    delegate?.nextSequenceToken(token: response?.nextSequenceToken)
+                    nextSequenceTokenBlock?(response?.nextSequenceToken)
                 }
                 
             }
         }
     }
     
-    private static func vlaidateAWSParams() -> Bool {
-        let errorStr = "Please set it using function setDefaultAWSLogs(awsLogs: AWSLogs, awsGroupName: String, awsStreamName: String, awsSequenceToken: String)"
+    private static func validateDefaultParams(message: String) -> Bool {
+        
+        guard !userId.isEmpty else {
+            delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidUserId)
+            messageSendingFailedBlock?(message, UploadToAWSError.invalidUserId)
+            return false
+        }
+        guard !deviceId.isEmpty else {
+            delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidDeviceId)
+            messageSendingFailedBlock?(message, UploadToAWSError.invalidDeviceId)
+            return false
+        }
+        guard !sessionId.isEmpty else {
+            delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidSessionId)
+            messageSendingFailedBlock?(message, UploadToAWSError.invalidSessionId)
+            return false
+        }
+        return true
+    }
+    
+    private static func vlaidateAWSParams(message: String) -> Bool {
         
         guard defaultAWSLogs != nil else {
-            assertionFailure("Invalid AWSLogs instance, " + errorStr)
+            delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidAWSLogsInstance)
+            messageSendingFailedBlock?(message, UploadToAWSError.invalidAWSLogsInstance)
             return false
         }
         guard awsLogGroupName != nil else {
-            assertionFailure("Invalid awsLogGroupName. " + errorStr)
+            delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidAWSLogGroupName)
+            messageSendingFailedBlock?(message, UploadToAWSError.invalidAWSLogGroupName)
             return false
         }
         guard awsLogStreamName != nil else {
-            assertionFailure("Invalid awsLogStreamName. " + errorStr)
+            delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidawsLogStreamName)
+            messageSendingFailedBlock?(message, UploadToAWSError.invalidAWSLogGroupName)
             return false
         }
         return true

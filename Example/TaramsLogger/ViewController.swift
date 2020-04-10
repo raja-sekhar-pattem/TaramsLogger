@@ -8,7 +8,6 @@
 
 import UIKit
 import TaramsLogger
-import AWSLogs
 
 class ViewController: UIViewController {
 
@@ -24,22 +23,11 @@ class ViewController: UIViewController {
     
     @IBAction func buttonClickAction(_ sender: UIButton) {
         print("\(sender.titleLabel!.text!) is selected")
-        ///if you are using AWSLogs, calling setAWSLogs function is mandatory
-        let awsLogs = AWSLogs(forKey: "YOUR AWS LOGS KEY")
-        Logger.setAWSLogs(awsLogs:awsLogs , awsGroupName: "AWSGroupName", awsStreamName: "AWSStreamname")
-        /// you can set default infor using the setDefaultInfo function or you can directly set it by variable name
-        // set info using function
-        Logger.setDefaultInfo(deviceId: "DEVICEID", userId: "USERID", sessionId: "SESSIONID", buildType: .development)
-        //set info using varaible name
-        Logger.deviceId = "new deviceId"
-        Logger.logFileName = "loggerLogs.txt"
         ///writing logs to text fille
         Logger.writeToFile(message: Logger.LogMessages.CreatePostBattle.createPost.rawValue, event: .warning,file:#file, function: #function, line: #line)
         /// writing logs to AWS cloud watch
         Logger.writeLogsToAWSCloudWatch(message: "\(sender.titleLabel!.text!) is selected", event: .debug)
     }
-    
-    
 
 }
 
