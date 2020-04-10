@@ -60,15 +60,15 @@ class AWSLogsService : LoggerDelegate {
         //set info using varaible name
         Logger.deviceId = "new deviceId"
         Logger.logFileName = "loggerLogs.txt"
-        Logger.messageSendingFailedBlock = { (message, error) in
-            print("Log Event Failed !!!! error: \(error.errorDescription ?? "") errorCode: \(error.errorCode)")
-            print("MESSAGE: \(message)")
-        }
+//        Logger.messageSendingFailedBlock = { (message, error) in
+//            print("Log Event Failed !!!! error: \(error.errorDescription ?? "") errorCode: \(error.errorCode)")
+//            print("MESSAGE: \(message)")
+//        }
     }
     
-//    func loggingEventFailed(message: String, error: UploadToAWSError) {
-//        print("Log Event Failed !!!! error: \(error.errorDescription ?? "") errorCode: \(error.errorCode)")
-//        
-//        print("MESSAGE: \(message)")
-//    }
+    func loggingEventFailed(message: String, error: UploadToAWSError) {
+        print("Log Event Failed !!!! error: \(error.errorDescription ?? "") errorCode: \(error.errorCode)")
+        
+        print("MESSAGE: \(message)")
+    }
 }
