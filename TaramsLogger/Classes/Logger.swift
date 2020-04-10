@@ -19,6 +19,7 @@ public enum UploadToAWSError: Error {
     case invalidUserId
     case invalidDeviceId
     case invalidSessionId
+    case noInternetconnection
     struct Constants {
         static let errorStr = "Please set it using function setDefaultAWSLogs(awsLogs: AWSLogs, awsGroupName: String, awsStreamName: String)"
         static let invalidAWSLogsInstanceMessage = "Invalid AWSLogs instance, \(errorStr)"
@@ -29,6 +30,7 @@ public enum UploadToAWSError: Error {
         static let invalidUserIdMessage = "Invalid UserId. Please set the userId using Logger.userId "
         static let invalidDeviceIdMessage = "Invalid UserId. Please set the userId using Logger.deviceId "
         static let invalidSessionIdMessage = "Invalid UserId. Please set the userId using Logger.sessionId "
+        static let noInternetconnectionMessage = "The Internet connection appears to be offline."
         
         static let invalidAWSLogsInstanceComment = "Invalid AWSLogs Instance"
         static let invalidAWSLogGroupNameComment = "Invalid AWSGroupName."
@@ -38,7 +40,7 @@ public enum UploadToAWSError: Error {
         static let invalidUserIdComment = "Invalid UserId"
         static let invalidDeviceIdComment = "Invalid Device Id"
         static let invalidSessionIdComment = "Invalid SessionId"
-        
+        static let noInternetconnectionComment = "No Internet Connection"
     }
     public var errorDescription: String? {
         
@@ -59,6 +61,8 @@ public enum UploadToAWSError: Error {
             return NSLocalizedString(Constants.invalidDeviceIdMessage, comment: Constants.invalidDeviceIdComment)
         case .invalidSessionId:
             return NSLocalizedString(Constants.invalidSessionIdMessage, comment: Constants.invalidSessionIdComment)
+        case .noInternetconnection:
+            return NSLocalizedString(Constants.noInternetconnectionMessage, comment: Constants.noInternetconnectionComment)
         }
     }
     public var errorCode: Int {
@@ -72,7 +76,7 @@ public enum UploadToAWSError: Error {
 }
 
 public protocol LoggerDelegate : class {
-    func loggingEventFailed(message: String, error: UploadToAWSError)
+    func loggingEventFailed(message: String, timestamp: NSNumber, error: UploadToAWSError)
     func nextSequenceToken(token: String?)
 }
 
@@ -175,6 +179,20 @@ open class Logger {
         }
     }
     
+    public static func configure(with awsServiceConfig: AWSServiceConfiguration, awsLogKey: String, awsGroupName: String, awsStreamName: String, deviceId: String, userId: String, sessionId: String, buildType: BuildEnvironment) {
+        
+        AWSLogs.register(with: awsServiceConfig, forKey: awsLogKey)
+        defaultAWSLogs = AWSLogs(forKey: awsLogKey)
+        awsLogGroupName = awsGroupName
+        awsLogStreamName = awsStreamName
+        createLogStream()
+        
+        Logger.deviceId = deviceId
+        Logger.userId = userId
+        Logger.sessionId = sessionId
+        Logger.buildType = buildType
+    }
+    
     public static func registerAndSetAWSLogs(serviceConfig: AWSServiceConfiguration, awsLogKey: String, awsGroupName: String, awsStreamName: String) {
         AWSLogs.register(with: serviceConfig, forKey: awsLogKey)
         defaultAWSLogs = AWSLogs(forKey: awsLogKey)
@@ -198,17 +216,17 @@ open class Logger {
         logStreamSession = logStreamRequest?.logStreamName ?? "nil"
         
         guard let logger = Logger.defaultAWSLogs else {
-            delegate?.loggingEventFailed(message: "AWSLogs() Initialization error", error: UploadToAWSError.invalidAWSLogStream)
+            delegate?.loggingEventFailed(message: "AWSLogs() Initialization error", timestamp: Date.timestamp, error: UploadToAWSError.invalidAWSLogStream)
             return
         }
         guard let streamRequest = logStreamRequest else {
-            delegate?.loggingEventFailed(message: "AWSLogsCreateLogStreamRequest() instantiation error", error: UploadToAWSError.invalidAWSLogStream)
+            delegate?.loggingEventFailed(message: "AWSLogsCreateLogStreamRequest() instantiation error", timestamp: Date.timestamp, error: UploadToAWSError.invalidAWSLogStream)
             return
         }
         
         logger.createLogStream(streamRequest) { (error) in
             if let error = error {
-                delegate?.loggingEventFailed(message: error.localizedDescription, error: UploadToAWSError.invalidAWSLogStream)
+                delegate?.loggingEventFailed(message: error.localizedDescription, timestamp: Date.timestamp, error: UploadToAWSError.invalidAWSLogStream)
             }
         }
     }
@@ -266,7 +284,7 @@ open class Logger {
             loggerQueue.async {
                 let logInputEvent = AWSLogsInputLogEvent()
                 logInputEvent?.message = logMessage
-                logInputEvent?.timestamp = (Date().timeIntervalSince1970 * 1000.0) as NSNumber
+                logInputEvent?.timestamp = Date.timestamp
                 
                 let logEvent = AWSLogsPutLogEventsRequest()
                 logEvent?.logEvents = [logInputEvent] as? [AWSLogsInputLogEvent]
@@ -278,12 +296,15 @@ open class Logger {
                 }
                 
                 guard let tempLogEvent = logEvent else {
-                    delegate?.loggingEventFailed(message: logMessage, error: UploadToAWSError.invalidAWSLogEventInstance)
+                    delegate?.loggingEventFailed(message: logMessage, timestamp: Date.timestamp, error: UploadToAWSError.invalidAWSLogEventInstance)
                     return
                 }
                 
                 defaultAWSLogs.putLogEvents(tempLogEvent) { (response, error) in
-                    if response?.nextSequenceToken != nil {
+                    if let error = error {
+                        delegate?.loggingEventFailed(message: error.localizedDescription, timestamp: logInputEvent?.timestamp ?? Date.timestamp, error: UploadToAWSError.noInternetconnection)
+                    }
+                    else if response?.nextSequenceToken != nil {
                         self.awsLogSequenceToken = response?.nextSequenceToken ?? ""
                     }
                     delegate?.nextSequenceToken(token: response?.nextSequenceToken)
@@ -296,15 +317,15 @@ open class Logger {
     private static func validateDefaultParams(message: String) -> Bool {
         
         guard !userId.isEmpty else {
-            delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidUserId)
+            delegate?.loggingEventFailed(message: message, timestamp: Date.timestamp, error: UploadToAWSError.invalidUserId)
             return false
         }
         guard !deviceId.isEmpty else {
-            delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidDeviceId)
+            delegate?.loggingEventFailed(message: message, timestamp: Date.timestamp, error: UploadToAWSError.invalidDeviceId)
             return false
         }
         guard !sessionId.isEmpty else {
-            delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidSessionId)
+            delegate?.loggingEventFailed(message: message, timestamp: Date.timestamp, error: UploadToAWSError.invalidSessionId)
             return false
         }
         return true
@@ -313,15 +334,15 @@ open class Logger {
     private static func vlaidateAWSParams(message: String) -> Bool {
         
         guard defaultAWSLogs != nil else {
-            delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidAWSLogsInstance)
+            delegate?.loggingEventFailed(message: message, timestamp: Date.timestamp, error: UploadToAWSError.invalidAWSLogsInstance)
             return false
         }
         guard awsLogGroupName != nil else {
-            delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidAWSLogGroupName)
+            delegate?.loggingEventFailed(message: message, timestamp: Date.timestamp, error: UploadToAWSError.invalidAWSLogGroupName)
             return false
         }
         guard awsLogStreamName != nil else {
-            delegate?.loggingEventFailed(message: message, error: UploadToAWSError.invalidawsLogStreamName)
+            delegate?.loggingEventFailed(message: message, timestamp: Date.timestamp, error: UploadToAWSError.invalidawsLogStreamName)
             return false
         }
         return true
@@ -385,6 +406,9 @@ open class Logger {
 public extension Date {
     func toString() -> String {
         return Logger.dateFormatter.string(from: self as Date)
+    }
+    static var timestamp: NSNumber {
+        return (Date().timeIntervalSince1970 * 1000.0) as NSNumber
     }
 }
 

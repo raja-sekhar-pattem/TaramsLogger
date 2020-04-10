@@ -66,7 +66,7 @@ class AWSLogsService : LoggerDelegate {
 //        }
     }
     
-    func loggingEventFailed(message: String, error: UploadToAWSError) {
+    func loggingEventFailed(message: String, timestamp: NSNumber, error: UploadToAWSError) {
         print("Log Event Failed !!!! error: \(error.errorDescription ?? "") errorCode: \(error.errorCode)")
         
         print("MESSAGE: \(message)")
