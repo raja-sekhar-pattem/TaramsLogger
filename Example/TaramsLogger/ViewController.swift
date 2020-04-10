@@ -26,7 +26,7 @@ class ViewController: UIViewController {
         print("\(sender.titleLabel!.text!) is selected")
         ///if you are using AWSLogs, calling setAWSLogs function is mandatory
         let awsLogs = AWSLogs(forKey: "YOUR AWS LOGS KEY")
-        Logger.setAWSLogs(awsLogs:awsLogs , awsGroupName: "AWSGroupName", awsStreamName: "AWSStreamname", awsSequenceToken: "AWSSequenceToken")
+        Logger.setAWSLogs(awsLogs:awsLogs , awsGroupName: "AWSGroupName", awsStreamName: "AWSStreamname")
         /// you can set default infor using the setDefaultInfo function or you can directly set it by variable name
         // set info using function
         Logger.setDefaultInfo(deviceId: "DEVICEID", userId: "USERID", sessionId: "SESSIONID", buildType: .development)

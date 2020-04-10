@@ -14,7 +14,8 @@ open class Logger {
     private static var defaultAWSLogs: AWSLogs!
     private static var awsLogGroupName: String!
     private static var awsLogStreamName: String!
-    public static var awsLogSequenceToken: String!
+    private static var logStreamSession:String = ""
+    public static var awsLogSequenceToken = ""
     public static var deviceId = "Current device ID"
     public static var userId = "Logged in user Id"
     public static var sessionId = "Current session Id"
@@ -104,11 +105,24 @@ open class Logger {
             return allowed
         }
     }
-    public static func setAWSLogs(awsLogs: AWSLogs, awsGroupName: String, awsStreamName: String, awsSequenceToken: String) {
+    public static func setAWSLogs(awsLogs: AWSLogs, awsGroupName: String, awsStreamName: String) {
         defaultAWSLogs = awsLogs
         awsLogGroupName = awsGroupName
         awsLogStreamName = awsStreamName
-        awsLogSequenceToken = awsSequenceToken
+        createLogStream()
+    }
+    
+    private static func createLogStream(){
+        let logStreamRequest = AWSLogsCreateLogStreamRequest()
+        logStreamRequest?.logGroupName = awsLogGroupName
+        logStreamRequest?.logStreamName = awsLogStreamName
+        logStreamSession = logStreamRequest?.logStreamName ?? "nil"
+        
+        if let tempLogStreamRequest = logStreamRequest {
+            Logger.defaultAWSLogs.createLogStream(tempLogStreamRequest) { (error) in
+                print("Log stream Error \(String(describing: error))")
+            }
+        }
     }
     
     public static func setDefaultInfo(deviceId: String, userId: String, sessionId: String, buildType: BuildEnvironment) {
@@ -162,7 +176,7 @@ open class Logger {
                 let logEvent = AWSLogsPutLogEventsRequest()
                 logEvent?.logEvents = [logInputEvent] as? [AWSLogsInputLogEvent]
                 logEvent?.logGroupName = awsLogGroupName
-                logEvent?.logStreamName = awsLogStreamName //BuildType.active.apiEnv.awsLogStreamName
+                logEvent?.logStreamName = logStreamSession
                 print("sequenceToken before\(self.awsLogSequenceToken)")
                 print("logStream@@@@\(String(describing: logEvent?.logStreamName))")
                 
@@ -203,10 +217,6 @@ open class Logger {
             assertionFailure("Invalid awsLogStreamName. " + errorStr)
             return false
         }
-        guard awsLogSequenceToken != nil else {
-            assertionFailure("Invalid awsLogSequenceToken. " + errorStr)
-            return false
-        }
         return true
     }
     
@@ -223,7 +233,7 @@ open class Logger {
                         handle.closeFile()
                     }
                     else {
-                        try? logMessage?.write(to: log)
+                        ((try? logMessage?.write(to: log)) as ()??)
                     }
                 }
             }
