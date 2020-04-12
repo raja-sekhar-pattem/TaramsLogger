@@ -2,8 +2,14 @@ PODS:
   - AWSCore (2.13.1)
   - AWSLogs (2.13.1):
     - AWSCore (= 2.13.1)
-  - TaramsLogger (0.1.0):
+  - Realm (4.4.0):
+    - Realm/Headers (= 4.4.0)
+  - Realm/Headers (4.4.0)
+  - RealmSwift (4.4.0):
+    - Realm (= 4.4.0)
+  - TaramsLogger (0.1.6):
     - AWSLogs (~> 2.13.1)
+    - RealmSwift (~> 4.4.0)
 
 DEPENDENCIES:
   - TaramsLogger (from `../`)
@@ -12,6 +18,8 @@ SPEC REPOS:
   trunk:
     - AWSCore
     - AWSLogs
+    - Realm
+    - RealmSwift
 
 EXTERNAL SOURCES:
   TaramsLogger:
@@ -20,7 +28,9 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   AWSCore: ec394695d054fa4136b20ccd22d8901faea5de04
   AWSLogs: edeb9cc7b076fdfa9d0cc8641c74c19b767bb045
-  TaramsLogger: 05b27b7e3d1100e20d1b501ed21217bfcef61d18
+  Realm: e125f464884cda953ebefe70c671b75b03b81b9b
+  RealmSwift: 33656a42bd300959a081fc13347376bc478071af
+  TaramsLogger: e97c7e4ce7d30c1b4495aace210a62943ce3d68e
 
 PODFILE CHECKSUM: 0d34840080fb15a8c7c97ebf4d0f347492511bb2
 

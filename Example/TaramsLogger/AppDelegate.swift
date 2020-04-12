@@ -46,7 +46,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 }
 
-class AWSLogsService : LoggerDelegate {
+class AWSLogsService : LoggerDelegate {    
     static let shared = AWSLogsService()
     private init() {
         Logger.delegate = self
@@ -67,12 +67,12 @@ class AWSLogsService : LoggerDelegate {
     }
     
     func loggingEventFailed(message: String, timestamp: NSNumber, error: UploadToAWSError) {
-        print("Log Event Failed !!!! error: \(error.errorDescription ?? "") errorCode: \(error.errorCode)")
-        
-        print("MESSAGE: \(message)")
+//        print("Log Event Failed !!!! error: \(error.errorDescription ?? "") errorCode: \(error.errorCode)")
+//
+//        print("MESSAGE: \(message)")
     }
     
     func loggingEventSuccess(message: String, timestamp: NSNumber, nextSequenceToken: String) {
-        print("MESSAGE: \(message)")
+//        print("MESSAGE: \(message)")
     }
 }
