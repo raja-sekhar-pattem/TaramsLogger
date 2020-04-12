@@ -43,6 +43,7 @@ public enum UploadToAWSError: Error {
         static let invalidSessionIdComment = "Invalid SessionId"
         static let noInternetconnectionComment = "No Internet Connection"
     }
+    
     public var errorDescription: String? {
         
         switch self {
@@ -88,7 +89,6 @@ public extension LoggerDelegate {
     func loggingEventFailed(message: String?, timestamp: NSNumber?, error: UploadToAWSError) {}
     func loggingEventSuccess(message: String?, timestamp: NSNumber?, nextSequenceToken: String?){}
     func nextSequenceToken(token: String?) { }
-    
 }
 
 open class Logger {
@@ -110,6 +110,7 @@ open class Logger {
     public static weak var delegate: LoggerDelegate?
     private static let MIN_HOUR_PROD = 5400000;
     public static var uploadOldDataWhenInternetIsAvailable = true
+    public static var shouldEncodeMessageWithUTF8 = true
     private static var reachability: LoggerReachability?
     private init() { }
     
@@ -231,7 +232,6 @@ open class Logger {
         defaultAWSLogs = AWSLogs(forKey: awsLogKey)
         awsLogGroupName = awsGroupName
         awsLogStreamName = awsStreamName
-        createLogStream()
         
         Logger.deviceId = deviceId
         Logger.userId = userId
@@ -244,7 +244,6 @@ open class Logger {
         defaultAWSLogs = AWSLogs(forKey: awsLogKey)
         awsLogGroupName = awsGroupName
         awsLogStreamName = awsStreamName
-        createLogStream()
         
     }
     
@@ -252,10 +251,9 @@ open class Logger {
         defaultAWSLogs = awsLogs
         awsLogGroupName = awsGroupName
         awsLogStreamName = awsStreamName
-        createLogStream()
     }
     
-    private static func createLogStream(){
+    private static func createLogStream(completion: @escaping (() -> Void)){
         guard let logger = Logger.defaultAWSLogs else {
             delegate?.loggingEventFailed(message: "AWSLogs() Initialization error", timestamp: Date.currentTimestamp, error: UploadToAWSError.invalidAWSLogStream)
             return
@@ -268,6 +266,7 @@ open class Logger {
         
         guard let streamRequest = logStreamRequest else {
             delegate?.loggingEventFailed(message: "AWSLogsCreateLogStreamRequest() instantiation error", timestamp: Date.currentTimestamp, error: UploadToAWSError.invalidAWSLogStream)
+            completion()
             return
         }
         
@@ -275,6 +274,7 @@ open class Logger {
             if let error = error {
                 delegate?.loggingEventFailed(message: error.localizedDescription, timestamp: Date.currentTimestamp, error: UploadToAWSError.invalidAWSLogStream)
             }
+            completion()
         }
     }
     
@@ -332,8 +332,7 @@ open class Logger {
             loggerQueue.async {
                 if reachability?.connection != LoggerReachability.Connection.unavailable {
                     if let logInputEvent = AWSLogsInputLogEvent() {
-                        let logsInfoData = String(describing: logMessage.cString(using: String.Encoding.utf8))
-                        logInputEvent.message = logsInfoData
+                        logInputEvent.message = getUTF8EncodedString(message: logMessage)
                         logInputEvent.timestamp = date.timestamp
                         if awsLogSequenceToken == "" {
                             updateNextSequenceToken {
@@ -388,12 +387,17 @@ open class Logger {
         }
         return true
     }
+    private static func getUTF8EncodedString(message: String) -> String {
+        if shouldEncodeMessageWithUTF8 {
+            return String(describing: message.utf8CString)
+        }
+        return message
+    }
 }
-
 
 public extension Logger {
     
-    private static  func updateNextSequenceToken(completion: (() -> Void)) {
+    private static  func updateNextSequenceToken(completion: @escaping (() -> Void)) {
         guard let logger = Logger.defaultAWSLogs else {
             delegate?.loggingEventFailed(message: "AWSLogs() Initialization error", timestamp: Date.currentTimestamp, error: UploadToAWSError.invalidAWSLogStream)
             return
@@ -402,10 +406,28 @@ public extension Logger {
             describeRequest.logGroupName = awsLogGroupName
             describeRequest.logStreamNamePrefix = Date().toString()
             logger.describeLogStreams(describeRequest) { (response, error) in
-                if let logStreams = response?.logStreams, logStreams.count == 1 , let firstStream = logStreams.first {
-                    awsLogSequenceToken = firstStream.uploadSequenceToken ?? ""
+                if let error = error as NSError? {
+                    print(error)
+                    completion()
+                }
+                else {
+                    if let logStreams = response?.logStreams, logStreams.count == 1 , let firstStream = logStreams.first {
+                        awsLogSequenceToken = firstStream.uploadSequenceToken ?? ""
+                        completion()
+                    }
+                    else {
+                        createLogStream {
+                            completion()
+                        }
+                    }
                 }
             }
+        }
+        else {
+            createLogStream {
+                completion()
+            }
+            
         }
     }
     
@@ -453,9 +475,12 @@ public extension Logger {
         
         defaultAWSLogs.putLogEvents(tempLogEvent) { (response, error) in
             if let error = error as NSError? {
+                print("stream name error = \(error), sequence token = \(awsLogSequenceToken)")
                 if !isUploadingOldLogs , let message = inputLogEvents.first?.message, let timestamp = inputLogEvents.first?.timestamp {
-                    
-                    
+                    writeLogToDB(message: message, timestamp: timestamp)
+                    if let userInfo = error.userInfo as? [String: Any], let sequenceToken = userInfo["expectedSequenceToken"] as? String {
+                        self.awsLogSequenceToken = sequenceToken
+                    }
                     if error.code < 0 { // -1009 (no internet), -1001(time out), -1003 (server with hostname not found)
                         delegate?.loggingEventFailed(message: message, timestamp: timestamp, error: UploadToAWSError.noInternetconnection)
                     }
@@ -472,6 +497,7 @@ public extension Logger {
                 }
                 else {
                     delegate?.loggingEventSuccess(message: inputLogEvents.first?.message, timestamp: inputLogEvents.first?.timestamp, nextSequenceToken: response?.nextSequenceToken)
+                    writeOldLogsToAWS()
                 }
             }
         }
@@ -481,8 +507,7 @@ public extension Logger {
         var inputLogEvents = [AWSLogsInputLogEvent]()
         for item in logModels {
             if let inputLogEvent = AWSLogsInputLogEvent() {
-                let logsInfoData = String(describing: item.message.cString(using: String.Encoding.utf8))
-                inputLogEvent.message = logsInfoData
+                inputLogEvent.message = getUTF8EncodedString(message: item.message)
                 inputLogEvent.timestamp = NSNumber(value: item.timestamp)
                 if item.timestamp < (Date.currentTimestamp.intValue - MIN_HOUR_PROD) {
                     inputLogEvent.timestamp = Date.currentTimestamp

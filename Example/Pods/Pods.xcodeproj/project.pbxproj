@@ -209,6 +209,7 @@
 		83F0895ACB3082D5284E6EC443D1ED6B /* AWSInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 673FA6BAF439292E0CFC5FE91467C69B /* AWSInfo.m */; };
 		84451DB52B011C1477AC36381BEE01A2 /* AWSDDASLLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = E8C20A67C73DE72F469CB8FB82EE7862 /* AWSDDASLLogger.m */; };
 		848FCB23244334B000DB0009 /* LoggerReachability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 848FCB22244334B000DB0009 /* LoggerReachability.swift */; };
+		848FCB25244397EC00DB0009 /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 848FCB24244397EC00DB0009 /* Extensions.swift */; };
 		85A4032A88982139D3F0A5B19F9163B6 /* RLMObjectBase_Dynamic.h in Headers */ = {isa = PBXBuildFile; fileRef = 9227609CD9E602B72EBBD9B1B6C02CA8 /* RLMObjectBase_Dynamic.h */; };
 		85CFBB329F2D48EE65DC2E2FDE91C934 /* RLMPredicateUtil.mm in Sources */ = {isa = PBXBuildFile; fileRef = 15A06AD978B1EE03C3509E05E4177E7D /* RLMPredicateUtil.mm */; settings = {COMPILER_FLAGS = "-DREALM_HAVE_CONFIG -DREALM_COCOA_VERSION='@\"4.4.0\"' -D__ASSERTMACROS__ -DREALM_ENABLE_SYNC"; }; };
 		86488C7395299D62D524FEED908C8AC8 /* RLMObjectSchema.h in Copy . Public Headers */ = {isa = PBXBuildFile; fileRef = 259902BE3DC44D9504475BA6268844A3 /* RLMObjectSchema.h */; };
@@ -747,6 +748,7 @@
 		834E218217C184A9529B53DB2539065A /* AWSLogs.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = AWSLogs.release.xcconfig; sourceTree = "<group>"; };
 		838F13D0E7197975FE6BEAB46AF58CE2 /* RLMResults.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = RLMResults.h; path = include/RLMResults.h; sourceTree = "<group>"; };
 		848FCB22244334B000DB0009 /* LoggerReachability.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = LoggerReachability.swift; path = TaramsLogger/Classes/LoggerReachability.swift; sourceTree = "<group>"; };
+		848FCB24244397EC00DB0009 /* Extensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Extensions.swift; path = TaramsLogger/Classes/Extensions.swift; sourceTree = "<group>"; };
 		8500EF43FF68771580AA4834F2DB2226 /* work_queue.cpp */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.cpp.cpp; name = work_queue.cpp; path = Realm/ObjectStore/src/sync/impl/work_queue.cpp; sourceTree = "<group>"; };
 		8502E4D404FCC0338FC44EE5DD92AD2A /* LinkingObjects.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LinkingObjects.swift; path = RealmSwift/LinkingObjects.swift; sourceTree = "<group>"; };
 		8563C2E6D49FF9DA8B7BD5DC570DD257 /* AWSDDTTYLogger.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = AWSDDTTYLogger.m; path = AWSCore/Logging/AWSDDTTYLogger.m; sourceTree = "<group>"; };
@@ -1553,6 +1555,7 @@
 				64BCE5CC796BF7AA7DA094083BAA4947 /* Logger.swift */,
 				3F2F4ED487A28E620E7AAFF7AF687355 /* LogsModel.swift */,
 				848FCB22244334B000DB0009 /* LoggerReachability.swift */,
+				848FCB24244397EC00DB0009 /* Extensions.swift */,
 				76A445A5DE313ED5955C96558935E6EC /* Pod */,
 				DB54F03958916FB673FE1583F9F35A54 /* Support Files */,
 			);
@@ -2121,6 +2124,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				848FCB25244397EC00DB0009 /* Extensions.swift in Sources */,
 				759FA0B3F0A109B44E0FFF7138325F9E /* Logger.swift in Sources */,
 				848FCB23244334B000DB0009 /* LoggerReachability.swift in Sources */,
 				A745CCAB0DE101D9314D2885C0823B33 /* LogsModel.swift in Sources */,

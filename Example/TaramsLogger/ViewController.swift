@@ -24,11 +24,32 @@ class ViewController: UIViewController {
     @IBAction func buttonClickAction(_ sender: UIButton) {
         print("\(sender.titleLabel!.text!) is selected")
         ///writing logs to text fille
-        Logger.writeToFile(message: Logger.LogMessages.CreatePostBattle.createPost.rawValue, event: .warning,file:#file, function: #function, line: #line)
-        /// writing logs to AWS cloud watch
-        Logger.writeLogsToAWSCloudWatch(message: "\(sender.titleLabel!.text!) is selected", event: .debug)
+//        Logger.writeToFile(message: Logger.LogMessages.CreatePostBattle.createPost.rawValue, event: .warning,file:#file, function: #function, line: #line)
+//        /// writing logs to AWS cloud watch
+//        Logger.writeLogsToAWSCloudWatch(message: "\(sender.titleLabel!.text!) is selected", event: .debug)
+        let message = "\(sender.titleLabel!.text!) is selected"
+        let encodedOne = String(describing: message.cString(using: String.Encoding.utf8))
+        print("Encoded ONe = \(encodedOne)")
+        let encodedTwo = message.cString(using: String.Encoding.utf8)
+        print("EncodedTwo = \(encodedTwo)")
+        let encodedThree = utf8EncodedString(message: message)
+        print("EncodedThree = \(encodedThree)")
+        
+        print("Decoded three = \(utf8DecodedString(message: encodedThree))")
     }
 
+    func utf8DecodedString(message: String)-> String {
+         let data = message.data(using: .utf8)
+         if let message = String(data: data!, encoding: .nonLossyASCII){
+                return message
+          }
+          return ""
+    }
+
+    func utf8EncodedString(message: String)-> String {
+         return String(describing: message.utf8CString)
+    }
+    
 }
 
 extension Logger {

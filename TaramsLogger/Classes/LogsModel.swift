@@ -12,7 +12,6 @@ import RealmSwift
 class LogsModel: Object {
     @objc dynamic var message = ""
     @objc dynamic var timestamp: Int = 0
-    @objc dynamic var isFailed: Bool = true
     
     required init() {
         super.init()
@@ -33,7 +32,7 @@ extension LogsModel {
     class func getAllLogs() -> Results<LogsModel>? {
         do {
             let realm = try Realm()
-            return realm.objects(LogsModel.self).sorted(byKeyPath: "timestamp", ascending: false)
+            return realm.objects(LogsModel.self).sorted(byKeyPath: "timestamp", ascending: true)
         }
         catch let error {
             print(error)
