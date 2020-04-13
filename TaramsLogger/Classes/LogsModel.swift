@@ -12,13 +12,12 @@ import RealmSwift
 class LogsModel: Object {
     @objc dynamic var message = ""
     @objc dynamic var timestamp: Int = 0
-    @objc dynamic var nextSequenceToken = ""
     
     required init() {
         super.init()
     }
     
-    convenience init(message: String, timestamp: NSNumber, nextSequenceToken: String) {
+    convenience init(message: String, timestamp: NSNumber) {
         self.init()
         self.message = message
         self.timestamp = timestamp.intValue
