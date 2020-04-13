@@ -93,10 +93,8 @@ public extension LoggerDelegate {
 
 open class Logger {
     private static var defaultAWSLogs: AWSLogs!
-    private static var awsLogGroupName: String!
-    private static var awsLogStreamName: String!
-    private static var logStreamSession:String = ""
-    public static var awsLogSequenceToken = ""  /// this value is set every time we push a log to AWS Cloud watch
+    private static var awsLogGroupName = ""
+    private static var awsLogStreamName = ""
     public static var deviceId = ""
     public static var userId = ""
     public static var sessionId = ""
@@ -104,13 +102,13 @@ open class Logger {
     public static var dateFormat = "dd-MM-yyyy"
     public static var logFileName = "log.txt"
     private static var logDate = ""
-    private static let loggerQueue = DispatchQueue(label: "SportsMe.Logger")
+    private static let loggerQueue = DispatchQueue(label: "SportsMe.Logger", qos:.background, attributes: .concurrent)
     private static var logsCount = 0
     public static var maximumLogsCount = 500
     public static weak var delegate: LoggerDelegate?
     private static let MIN_HOUR_PROD = 5400000;
     public static var uploadOldDataWhenInternetIsAvailable = true
-    public static var shouldEncodeMessageWithUTF8 = true
+    public static var shouldEncodeMessageWithUTF8 = false
     private static var reachability: LoggerReachability?
     private init() { }
     
@@ -228,6 +226,7 @@ open class Logger {
     public static func configure(with awsServiceConfig: AWSServiceConfiguration, awsLogKey: String, awsGroupName: String, awsStreamName: String, deviceId: String, userId: String, sessionId: String, buildType: BuildEnvironment) {
         DispatchQueue.registerDetection(of: loggerQueue)
         setupReachability()
+        AWSLogs.remove(forKey: awsLogKey)
         AWSLogs.register(with: awsServiceConfig, forKey: awsLogKey)
         defaultAWSLogs = AWSLogs(forKey: awsLogKey)
         awsLogGroupName = awsGroupName
@@ -239,39 +238,25 @@ open class Logger {
         Logger.buildType = buildType
     }
     
-    public static func registerAndSetAWSLogs(serviceConfig: AWSServiceConfiguration, awsLogKey: String, awsGroupName: String, awsStreamName: String) {
-        AWSLogs.register(with: serviceConfig, forKey: awsLogKey)
-        defaultAWSLogs = AWSLogs(forKey: awsLogKey)
-        awsLogGroupName = awsGroupName
-        awsLogStreamName = awsStreamName
-        
-    }
-    
-    public static func setAWSLogs(awsLogs: AWSLogs, awsGroupName: String, awsStreamName: String) {
-        defaultAWSLogs = awsLogs
-        awsLogGroupName = awsGroupName
-        awsLogStreamName = awsStreamName
-    }
-    
     private static func createLogStream(completion: @escaping (() -> Void)){
         guard let logger = Logger.defaultAWSLogs else {
             delegate?.loggingEventFailed(message: "AWSLogs() Initialization error", timestamp: Date.currentTimestamp, error: UploadToAWSError.invalidAWSLogStream)
             return
         }
-        
+        print("stream name creating Log stream with name = \(awsLogStreamName)")
         let logStreamRequest = AWSLogsCreateLogStreamRequest()
         logStreamRequest?.logGroupName = awsLogGroupName
         logStreamRequest?.logStreamName = awsLogStreamName
-        logStreamSession = logStreamRequest?.logStreamName ?? "nil"
-        
         guard let streamRequest = logStreamRequest else {
+            print("stream name log strean could not be created with name \(awsLogStreamName)")
             delegate?.loggingEventFailed(message: "AWSLogsCreateLogStreamRequest() instantiation error", timestamp: Date.currentTimestamp, error: UploadToAWSError.invalidAWSLogStream)
             completion()
             return
         }
-        
+        print("stream name created Log stream request successfully with name = \(awsLogStreamName)")
         logger.createLogStream(streamRequest) { (error) in
             if let error = error {
+                print("stream name could not create Log stream(\(awsLogStreamName)) from response error = \(error)")
                 delegate?.loggingEventFailed(message: error.localizedDescription, timestamp: Date.currentTimestamp, error: UploadToAWSError.invalidAWSLogStream)
             }
             completion()
@@ -316,7 +301,6 @@ open class Logger {
     
     static func getLogFile() -> URL {
         let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-        print("Logfile name: \(paths[0].absoluteString)")
         return paths[0].appendingPathComponent(logFileName)
     }
     
@@ -331,24 +315,30 @@ open class Logger {
         if event.allowToLogWrite(environment: Logger.buildType)  && vlaidateAWSParams(message: logMessage) && validateDefaultParams(message: logMessage) {
             loggerQueue.async {
                 if reachability?.connection != LoggerReachability.Connection.unavailable {
+                    print("stream name internet is Available")
                     if let logInputEvent = AWSLogsInputLogEvent() {
+                        print("stream name created logInputEvent")
                         logInputEvent.message = getUTF8EncodedString(message: logMessage)
                         logInputEvent.timestamp = date.timestamp
-                        if awsLogSequenceToken == "" {
+                        if UserDefaults.nextSequenceToken.isEmpty {
+                            print("stream name sequenceToken is empty so update sequence token")
                             updateNextSequenceToken {
                                 putLogEventsToAws(inputLogEvents: [logInputEvent], isUploadingOldLogs: false)
                             }
                         }
                         else {
+                            print("stream name sequenceToken is \(UserDefaults.nextSequenceToken)")
                             putLogEventsToAws(inputLogEvents: [logInputEvent], isUploadingOldLogs: false)
                         }
                     }
                     else {
-                        writeLogToDB(message: message, timestamp: date.timestamp)
+                        print("stream name couldNot create logInputEvent so storing in DB")
+                        writeLogToDB(message: message, timestamp: date.timestamp, nextSequenceToken: UserDefaults.nextSequenceToken)
                     }
                 }
                 else {
-                    writeLogToDB(message: message, timestamp: date.timestamp)
+                    print("stream name internet is Not Available !!!!!! so storing log to DB")
+                    writeLogToDB(message: message, timestamp: date.timestamp, nextSequenceToken: UserDefaults.nextSequenceToken)
                 }
             }
         }
@@ -377,11 +367,11 @@ open class Logger {
             delegate?.loggingEventFailed(message: message, timestamp: Date.currentTimestamp, error: UploadToAWSError.invalidAWSLogsInstance)
             return false
         }
-        guard awsLogGroupName != nil else {
+        guard !awsLogGroupName.isEmpty else {
             delegate?.loggingEventFailed(message: message, timestamp: Date.currentTimestamp, error: UploadToAWSError.invalidAWSLogGroupName)
             return false
         }
-        guard awsLogStreamName != nil else {
+        guard !awsLogStreamName.isEmpty else {
             delegate?.loggingEventFailed(message: message, timestamp: Date.currentTimestamp, error: UploadToAWSError.invalidawsLogStreamName)
             return false
         }
@@ -402,28 +392,40 @@ public extension Logger {
             delegate?.loggingEventFailed(message: "AWSLogs() Initialization error", timestamp: Date.currentTimestamp, error: UploadToAWSError.invalidAWSLogStream)
             return
         }
+        print("stream name updating next sequence token, currentToken = \(UserDefaults.nextSequenceToken)")
         if let describeRequest = AWSLogsDescribeLogStreamsRequest() {
+            print("stream name Created describe log stream")
             describeRequest.logGroupName = awsLogGroupName
-            describeRequest.logStreamNamePrefix = Date().toString()
-            logger.describeLogStreams(describeRequest) { (response, error) in
-                if let error = error as NSError? {
-                    print(error)
-                    completion()
-                }
-                else {
-                    if let logStreams = response?.logStreams, logStreams.count == 1 , let firstStream = logStreams.first {
-                        awsLogSequenceToken = firstStream.uploadSequenceToken ?? ""
+            if !UserDefaults.nextSequenceToken.isEmpty {
+                print("stream name describelogdtream is created but sequence token is available = \(UserDefaults.nextSequenceToken)")
+                describeRequest.logStreamNamePrefix = awsLogStreamName
+                logger.describeLogStreams(describeRequest) { (response, error) in
+                    if let error = error as NSError? {
+                        print("stream name describe error", error)
                         completion()
                     }
                     else {
-                        createLogStream {
-                            completion()
+                        
+                        if let token = response?.nextToken {
+                            print("stream name describelogstream next sequence token = \(token)")
+                            UserDefaults.nextSequenceToken = token
                         }
+                        if let uploadSequenceToken = response?.logStreams?.first?.uploadSequenceToken {
+                            print("stream name describelogstream upload token = \(uploadSequenceToken)")
+                        }
+                        completion()
                     }
+                }
+            }
+            else {
+                print("stream name describelogdtream is created and nextsequence token is not available. So, to get seqtoken creating log stream with streamname = \(awsLogStreamName)")
+                createLogStream {
+                    completion()
                 }
             }
         }
         else {
+            print("stream name DescribeLogStream is empty so create Log streamname = \(awsLogStreamName)")
             createLogStream {
                 completion()
             }
@@ -448,57 +450,78 @@ public extension Logger {
             return
         }
         let inputLogEvents = getInputLogEvents(logModels: localList)
-        if awsLogSequenceToken == "" {
+        print("stream name old logs stored in DB are = \(localList)")
+        if UserDefaults.nextSequenceToken.isEmpty {
+            print("stream name trying to store old logs but userdefaults sequence token is empty")
             updateNextSequenceToken {
                 putLogEventsToAws(inputLogEvents: inputLogEvents, isUploadingOldLogs: true)
             }
         }
         else {
+            print("stream name trying to store old logs and  userdefaults sequence token \(UserDefaults.nextSequenceToken)")
             putLogEventsToAws(inputLogEvents: inputLogEvents, isUploadingOldLogs: true)
         }
     }
     
     private static func putLogEventsToAws(inputLogEvents: [AWSLogsInputLogEvent], isUploadingOldLogs: Bool){
+        print("stream name putlog ebvents method called for \(isUploadingOldLogs ? "Old logs" : "New log")")
         let logEvent = AWSLogsPutLogEventsRequest()
         logEvent?.logEvents = inputLogEvents
         logEvent?.logGroupName = awsLogGroupName
-        logEvent?.logStreamName = logStreamSession
+        logEvent?.logStreamName = awsLogStreamName
         
-        if self.awsLogSequenceToken != "" {
-            logEvent?.sequenceToken = self.awsLogSequenceToken
+        if isUploadingOldLogs, let log = LogsModel.getAllLogs()?.first, !log.nextSequenceToken.isEmpty {
+            print("stream name no of old logs Stored In DB are = \(inputLogEvents.count)")
+            print("stream name old sequence Stored In DB = \(log.nextSequenceToken)")
+                logEvent?.sequenceToken = log.nextSequenceToken
         }
-        
+        else {
+            print("stream name next sequence token in put log request = \(UserDefaults.nextSequenceToken)")
+            if !UserDefaults.nextSequenceToken.isEmpty {
+                print("stream name setting token to putlog, token = \(UserDefaults.nextSequenceToken)")
+                logEvent?.sequenceToken = UserDefaults.nextSequenceToken
+            }
+        }
         guard let tempLogEvent = logEvent else {
+            print("stream name Could not create inputlogeventrequest")
             delegate?.loggingEventFailed(message: inputLogEvents.first?.message, timestamp: inputLogEvents.first?.timestamp, error: UploadToAWSError.invalidAWSLogEventInstance)
             return
         }
-        
+        print("stream name successfully created inputlogeventrequest for seqtoken = \(logEvent?.sequenceToken ?? "nil")")
         defaultAWSLogs.putLogEvents(tempLogEvent) { (response, error) in
             if let error = error as NSError? {
-                print("stream name error = \(error), sequence token = \(awsLogSequenceToken)")
+                print("stream name aws logging failed error = \(error)")
                 if !isUploadingOldLogs , let message = inputLogEvents.first?.message, let timestamp = inputLogEvents.first?.timestamp {
-                    writeLogToDB(message: message, timestamp: timestamp)
-                    if let userInfo = error.userInfo as? [String: Any], let sequenceToken = userInfo["expectedSequenceToken"] as? String {
-                        self.awsLogSequenceToken = sequenceToken
+                    writeLogToDB(message: message, timestamp: timestamp, nextSequenceToken: UserDefaults.nextSequenceToken)
+                    if let sequenceToken = error.userInfo["expectedSequenceToken"] as? String {
+                        UserDefaults.nextSequenceToken = sequenceToken
                     }
+                    
                     if error.code < 0 { // -1009 (no internet), -1001(time out), -1003 (server with hostname not found)
                         delegate?.loggingEventFailed(message: message, timestamp: timestamp, error: UploadToAWSError.noInternetconnection)
                     }
                     else { // 9 aws instances not initialized properly
                         delegate?.loggingEventFailed(message: message, timestamp: timestamp, error: UploadToAWSError.invalidAWSLogStream)
                     }
+                    print("stream name old sequence token  error = \(UserDefaults.nextSequenceToken)")
+                    updateNextSequenceToken {
+                        print("stream name new sequence token error = \(UserDefaults.nextSequenceToken)")
+                    }
                 }
             }
-            else if response?.nextSequenceToken != nil {
-                delegate?.nextSequenceToken(token: response?.nextSequenceToken)
-                self.awsLogSequenceToken = response?.nextSequenceToken ?? ""
+            else if let nextSequenceToken = response?.nextSequenceToken {
                 if isUploadingOldLogs {
+                    print("stream name aws logging for old logs is successsss and new sequence token = \(nextSequenceToken)")
                     LogsModel.deleteAllLogsFromDB()
                 }
                 else {
+                    print("stream name aws new logs logging successsss and oldtoken = \(UserDefaults.nextSequenceToken)")
+                    print("stream name aws new logs logging successsss and newtoken = \(nextSequenceToken)")
                     delegate?.loggingEventSuccess(message: inputLogEvents.first?.message, timestamp: inputLogEvents.first?.timestamp, nextSequenceToken: response?.nextSequenceToken)
                     writeOldLogsToAWS()
                 }
+                delegate?.nextSequenceToken(token: nextSequenceToken)
+                UserDefaults.nextSequenceToken = nextSequenceToken
             }
         }
     }
@@ -518,8 +541,8 @@ public extension Logger {
         return inputLogEvents
     }
     
-    private static func writeLogToDB(message: String, timestamp: NSNumber) {
-        let logObject = LogsModel(message: message, timestamp: timestamp)
+    private static func writeLogToDB(message: String, timestamp: NSNumber, nextSequenceToken: String) {
+        let logObject = LogsModel(message: message, timestamp: timestamp, nextSequenceToken: nextSequenceToken)
         logObject.addLogToDB()
     }
 }

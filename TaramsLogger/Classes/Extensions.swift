@@ -81,3 +81,18 @@ public extension Date {
         return (self.timeIntervalSince1970 * 1000.0) as NSNumber
     }
 }
+
+extension UserDefaults {
+
+enum Key: String {
+    case nextSequenceToken
+}
+    static var nextSequenceToken: String {
+        get {
+            return UserDefaults.standard.string(forKey: Key.nextSequenceToken.rawValue) ?? ""
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Key.nextSequenceToken.rawValue)
+        }
+    }
+}

@@ -52,8 +52,13 @@ class AWSLogsService : LoggerDelegate {
         Logger.delegate = self
     }
     func configure() {
-        let awsLogs = AWSLogs(forKey: "YOUR AWS LOGS KEY")
-        Logger.setAWSLogs(awsLogs:awsLogs , awsGroupName: "AWSGroupName", awsStreamName: "AWSStreamname")
+//        let credentialProvider = AWSCognitoCredentialsProvider(regionType: .APEast1, identityPoolId: "Pool Id")
+//        if let serviceConfig = AWSServiceConfiguration(region:.APEast1, credentialsProvider:credentialProvider) {
+//            Logger.configure(with: serviceConfig , awsLogKey: "Log Key", awsGroupName: "Log group name", awsStreamName: "log stream name", deviceId: "Device Id", userId: "UseraId", sessionId: "SeesionId", buildType: .development)
+//        }
+//        
+//        let awsLogs = AWSLogs(forKey: "YOUR AWS LOGS KEY")
+        
         /// you can set default infor using the setDefaultInfo function or you can directly set it by variable name
         // set info using function
         Logger.setDefaultInfo(deviceId: "DEVICEID", userId: "USERID", sessionId: "SESSIONID", buildType: .development)
